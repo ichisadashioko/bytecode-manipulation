@@ -40,12 +40,14 @@ public final class BytecodeManipulation {
             // System.out.println(name);
 
             if (name.endsWith(".class")) {
-                classesData.put(name, value);
+                String baseClassName = name.substring(0, name.lastIndexOf("."));
+                classesData.put(baseClassName, value);
 
                 ClassReader cr = new ClassReader(value);
                 ClassNode cn = new ClassNode();
                 cr.accept(cn, ClassReader.EXPAND_FRAMES);
-                classNodes.put(name, cn);
+
+                classNodes.put(baseClassName, cn);
             } else {
                 resources.put(name, value);
             }
@@ -61,10 +63,11 @@ public final class BytecodeManipulation {
         return data;
     }
 
-    public static Map<String, ClassNode> RenameClass(RenameClassArguments args) {
+    public static RenameClassReturns RenameClass(RenameClassArguments args) {
         String oldClassName = args.oldClassName;
         String newClassName = args.newClassName;
         Map<String, ClassNode> classNodes = args.classNodes;
+        Set<String> modifiedClasses = new HashSet<>();
 
         Set<String> referenced = new HashSet<>();
         Map<String, ClassNode> updateMap = new HashMap<>();
@@ -91,13 +94,14 @@ public final class BytecodeManipulation {
         }
 
         for (Entry<String, ClassNode> e : updateMap.entrySet()) {
-            // String name = e.getKey();
             ClassNode updated = e.getValue();
 
-            if (updated.name.equals(oldClassName)) {
+            if (updated.name.equals(oldClassName) || updated.name.equals(newClassName)) {
+                classNodes.remove(oldClassName);
                 classNodes.put(newClassName, updated);
             } else {
                 classNodes.put(updated.name, updated);
+                modifiedClasses.add(newClassName);
             }
         }
 
@@ -150,7 +154,6 @@ public final class BytecodeManipulation {
 
             if (newInnerClassName != null && !inner.equals(newInnerClassName)) {
                 System.out.println(String.format("newInnerClassName: %s, inner: %s", newInnerClassName, inner));
-                // TODO call rename(classNodes.get(inner), inner, innerNewClassName)
                 RenameClassArguments innerArgs = new RenameClassArguments();
                 innerArgs.oldClassName = inner;
                 innerArgs.newClassName = newInnerClassName;
@@ -158,12 +161,84 @@ public final class BytecodeManipulation {
             }
         }
 
-        for (int i = 0; i < innerRenameCalls.size(); i++) {
-            RenameClassArguments innerArgs = innerRenameCalls.get(i);
+        for (RenameClassArguments innerArgs : innerRenameCalls) {
             innerArgs.classNodes = classNodes;
-            classNodes = RenameClass(innerArgs);
+            RenameClassReturns innerReturn = RenameClass(innerArgs);
+
+            classNodes = innerReturn.classNodes;
+            modifiedClasses.addAll(innerReturn.modifiedClasses);
         }
 
-        return classNodes;
+        RenameClassReturns retval = new RenameClassReturns();
+        retval.classNodes = classNodes;
+        retval.modifiedClasses = modifiedClasses;
+
+        return retval;
+    }
+
+    public static void ExportJarFile(ExportJarArguments args) throws FileNotFoundException, IOException {
+        Map<String, byte[]> contents = new TreeMap<>(new Comparator<String>() {
+            @Override
+            public int compare(String o1, String o2) {
+                if (o1.contains("/") && !o2.contains("/")) {
+                    return -1;
+                } else if (!o1.contains("/") && o2.contains("/")) {
+                    return 1;
+                } else {
+                    return o1.compareTo(o2);
+                }
+            }
+        });
+
+        for (Entry<String, ClassNode> e : args.classNodes.entrySet()) {
+            String jarEntryKey = e.getKey() + ".class";
+
+            if (args.modifiedClasses.contains(e.getKey()) || !args.originalClassData.containsKey(e.getKey())) {
+                byte[] data = ConvertClassNodeToBytes(e.getValue());
+                contents.put(jarEntryKey, data);
+            } else {
+                contents.put(jarEntryKey, args.originalClassData.get(e.getKey()));
+            }
+        }
+
+        for (Entry<String, byte[]> e : args.resources.entrySet()) {
+            contents.put(e.getKey(), e.getValue());
+        }
+
+        JarOutputStream output = new JarOutputStream(new FileOutputStream(args.outFile));
+        Set<String> visitedDirs = new HashSet<>();
+
+        for (Entry<String, byte[]> e : contents.entrySet()) {
+            String key = e.getKey();
+            if (key.contains("/")) {
+                // record directories
+                String parent = key;
+                List<String> toAdd = new ArrayList<>();
+                do {
+                    parent = parent.substring(0, parent.lastIndexOf("/"));
+                    if (!visitedDirs.contains(parent)) {
+                        visitedDirs.add(parent);
+                        toAdd.add(0, parent + "/");
+                    }
+                } while (parent.contains("/"));
+
+                for (String dir : toAdd) {
+                    output.putNextEntry(new JarEntry(dir));
+                    output.closeEntry();
+                }
+            }
+
+            output.putNextEntry(new JarEntry(key));
+            output.write(e.getValue());
+            output.closeEntry();
+        }
+
+        output.close();
+    }
+
+    public static byte[] ConvertClassNodeToBytes(ClassNode cn) {
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        cn.accept(cw);
+        return cw.toByteArray();
     }
 }
