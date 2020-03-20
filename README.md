@@ -1,3 +1,5 @@
-# Trace
+# Java bytecode manipulation
 
-`onClassRename(ClassRenameEvent)` at `Input.java`
+- Perform bytecode manipulation with minimal setup.
+
+- Main entry: [`App.java`](./src/main/java/io/github/ichisadashioko/App.java)

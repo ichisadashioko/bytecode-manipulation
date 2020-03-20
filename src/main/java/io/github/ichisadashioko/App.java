@@ -5,15 +5,12 @@ import java.util.*;
 
 import org.objectweb.asm.tree.*;
 
-/**
- * Hello world!
- */
 public final class App {
     public static void main(String[] args) throws Exception {
         System.out.println("Hello World!");
 
-        String inputFilePath = "E:\\jar-remapper\\heroes-lore-wind-of-solti.jar";
-        String outputFilePath = "E:\\jar-remapper\\modified_heroes-lore-wind-of-solti.jar";
+        String inputFilePath = "input.jar";
+        String outputFilePath = "output.jar";
 
         File input = new File(inputFilePath);
 
@@ -30,6 +27,7 @@ public final class App {
         // prevent ConcurrentModification
         String[] classNames = classSet.toArray(new String[classSet.size()]);
 
+        // rename all classes (add "Class_" prefix)
         for (String oldClassName : classNames) {
             if (oldClassName.contains("/")) {
                 continue;
