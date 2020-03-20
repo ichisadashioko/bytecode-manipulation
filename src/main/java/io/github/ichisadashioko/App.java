@@ -42,7 +42,7 @@ public final class App {
             renameArguments.newClassName = newClassName;
             renameArguments.classNodes = classNodes;
 
-            RenameClassReturns renameClassReturns = BytecodeManipulation.RenameClass(renameArguments);
+            ModifiedJarReturns renameClassReturns = BytecodeManipulation.RenameClass(renameArguments);
             classNodes = renameClassReturns.classNodes;
             modifiedClasses.addAll(renameClassReturns.modifiedClasses);
         }

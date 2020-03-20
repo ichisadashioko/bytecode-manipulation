@@ -63,7 +63,7 @@ public final class BytecodeManipulation {
         return data;
     }
 
-    public static RenameClassReturns RenameClass(RenameClassArguments args) {
+    public static ModifiedJarReturns RenameClass(RenameClassArguments args) {
         String oldClassName = args.oldClassName;
         String newClassName = args.newClassName;
         Map<String, ClassNode> classNodes = args.classNodes;
@@ -163,13 +163,13 @@ public final class BytecodeManipulation {
 
         for (RenameClassArguments innerArgs : innerRenameCalls) {
             innerArgs.classNodes = classNodes;
-            RenameClassReturns innerReturn = RenameClass(innerArgs);
+            ModifiedJarReturns innerReturn = RenameClass(innerArgs);
 
             classNodes = innerReturn.classNodes;
             modifiedClasses.addAll(innerReturn.modifiedClasses);
         }
 
-        RenameClassReturns retval = new RenameClassReturns();
+        ModifiedJarReturns retval = new ModifiedJarReturns();
         retval.classNodes = classNodes;
         retval.modifiedClasses = modifiedClasses;
 
@@ -241,4 +241,35 @@ public final class BytecodeManipulation {
         cn.accept(cw);
         return cw.toByteArray();
     }
+
+    public static ModifiedJarReturns RenameFieldInClass(RenameFieldInClassArguments args) {
+        Set<String> updateMap = new HashSet<>();
+
+        for (ClassNode cn : args.classNodes.values()) {
+            ClassNode updated = new ClassNode();
+            cn.accept(new ClassRemapper(updated, new Remapper() {
+                @Override
+                public String mapFieldName(String owner, String name, String descriptor) {
+                    if (args.fieldOwner.name.equals(owner) && name.equals(args.oldFieldName)
+                            && descriptor.equals(args.field.desc)) {
+                        updateMap.add(cn.name);
+                        return args.newFieldName;
+                    }
+
+                    return name;
+                }
+            }));
+
+            if (updateMap.contains(cn.name)) {
+                args.classNodes.put(updated.name, updated);
+            }
+        }
+
+        ModifiedJarReturns retval = new ModifiedJarReturns();
+        retval.classNodes = args.classNodes;
+        retval.modifiedClasses = updateMap;
+
+        return retval;
+    }
+
 }

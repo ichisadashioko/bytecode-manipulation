@@ -5,7 +5,7 @@ import java.util.Set;
 
 import org.objectweb.asm.tree.ClassNode;
 
-public class RenameClassReturns {
+public class ModifiedJarReturns {
     public Map<String, ClassNode> classNodes;
     public Set<String> modifiedClasses;
 }
