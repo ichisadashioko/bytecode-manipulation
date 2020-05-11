@@ -11,6 +11,23 @@ import org.objectweb.asm.commons.*;
 import org.objectweb.asm.tree.*;
 
 public final class BytecodeManipulation {
+    public static void DeobfuscateClassNamesInJar(JarFileData data) {
+        Map<String, byte[]> classesData = data.classesData;
+        Map<String, byte[]> resources = data.resources;
+        Map<String, ClassNode> classNodes = data.classNodes;
+
+        Set<String> modifiedClasses = new HashSet<>();
+        Set<String> _classNodesKeys = classNodes.keySet();
+
+        String[] classNodesKeys = _classNodesKeys.toArray(new String[_classNodesKeys.size()]);
+
+        System.out.println("number of class nodes: " + classNodesKeys.length);
+        System.out.println("list of classes in the JAR file:");
+        for (int i = 0; i < classNodesKeys.length; i++) {
+            System.out.println(i + " - " + classNodesKeys[i]);
+        }
+    }
+
     public static JarFileData ParseJarFile(File input) throws IOException {
 
         Map<String, byte[]> classesData = new HashMap<>();
